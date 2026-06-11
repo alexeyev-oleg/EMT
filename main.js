@@ -196,6 +196,29 @@ document.getElementById('theme-toggle').addEventListener('click', () =>
 applyTheme(currentTheme);
 applyLang(currentLang);
 
+/* ─── HAMBURGER MENU ──────────────────────────────────────────── */
+const hamburger  = document.getElementById('hamburger');
+const mobileNav  = document.getElementById('mobile-nav');
+
+function closeMobileNav() {
+  hamburger.classList.remove('open');
+  mobileNav.classList.remove('open');
+  hamburger.setAttribute('aria-expanded', 'false');
+}
+
+hamburger.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const isOpen = mobileNav.classList.toggle('open');
+  hamburger.classList.toggle('open', isOpen);
+  hamburger.setAttribute('aria-expanded', String(isOpen));
+});
+
+mobileNav.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMobileNav));
+
+document.addEventListener('click', (e) => {
+  if (!mobileNav.contains(e.target) && !hamburger.contains(e.target)) closeMobileNav();
+});
+
 /* ─── UTILS ──────────────────────────────────────────────────── */
 const rand = (a, b) => Math.random() * (b - a) + a;
 

@@ -121,6 +121,58 @@ body {
   text-shadow: none;
 }
 
+/* ─── HAMBURGER ──────────────────────────────────────────────── */
+.hamburger {
+  display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px;
+  width: 36px; height: 34px;
+  background: var(--toggle-bg);
+  border: 1px solid var(--toggle-border);
+  border-radius: 6px; cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.hamburger span {
+  display: block; width: 18px; height: 2px;
+  background: var(--text); border-radius: 2px;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  pointer-events: none;
+}
+.hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+.hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ─── MOBILE NAV DROPDOWN ────────────────────────────────────── */
+.mobile-nav {
+  position: fixed;
+  top: 72px; left: 0; right: 0;
+  background: var(--nav-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  flex-direction: column;
+  z-index: 98;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.3s ease;
+  display: none;
+}
+.mobile-nav a {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 17px; font-weight: 600;
+  color: var(--nav-link);
+  text-decoration: none;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.03em;
+  transition: color 0.2s, background 0.2s;
+}
+.mobile-nav a:last-child { border-bottom: none; }
+.mobile-nav a:hover, .mobile-nav a:active { color: var(--accent1); background: rgba(0,255,136,0.05); }
+.mobile-nav .mob-whatsapp { color: var(--accent1); }
+[data-theme="light"] .mobile-nav a:hover { background: rgba(0,150,106,0.06); }
+
 /* кнопки навбара — всегда читаемы до скролла */
 #navbar:not(.scrolled) .lang-toggle,
 #navbar:not(.scrolled) .theme-toggle {
@@ -136,6 +188,11 @@ body {
   color: #00ff88;
   text-shadow: 0 0 8px rgba(0,255,136,0.4);
 }
+#navbar:not(.scrolled) .hamburger {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.35);
+}
+#navbar:not(.scrolled) .hamburger span { background: #ffffff; }
 
 /* controls block pushed to right */
 .nav-controls {
@@ -839,8 +896,11 @@ footer { background: var(--footer-bg); border-top: 1px solid var(--border); padd
   .stat-item { padding: 8px 20px; }
   .stat-divider { display: none; }
   .nav-links { display: none; }
+  .btn-nav { display: none; }
+  .hamburger { display: flex; }
+  .mobile-nav { display: flex; }
+  .mobile-nav.open { max-height: 420px; }
   .hero-title { font-size: 38px; }
-  .lang-toggle span:not(.lang-sep):not(.active) { display: none; }
   /* mobile: text block pinned to bottom */
   #hero { justify-content: center; align-items: flex-end; }
   .hero-content {
@@ -874,10 +934,11 @@ footer { background: var(--footer-bg); border-top: 1px solid var(--border); padd
 /* LTR: logo is last in DOM, pull it to front with order */
 .nav-logo { order: -1; }
 
-/* LTR: controls HTML order is [WhatsApp][Theme][Lang] — restore to [Lang][Theme][WhatsApp] */
+/* LTR: controls HTML order is [WhatsApp][Theme][Lang][Hamburger] — restore to [Lang][Theme][WhatsApp] */
 .lang-toggle { order: 1; }
 .theme-toggle { order: 2; }
 .btn-nav      { order: 3; }
+.hamburger    { order: 4; }
 
 /* RTL: logo stays last in DOM = far RIGHT; controls pushed LEFT */
 [dir="rtl"] .nav-controls { margin-left: 0 !important; margin-right: auto !important; }
