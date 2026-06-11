@@ -222,6 +222,11 @@ document.addEventListener('click', (e) => {
 /* ─── UTILS ──────────────────────────────────────────────────── */
 const rand = (a, b) => Math.random() * (b - a) + a;
 
+/* ─── PERFORMANCE ────────────────────────────────────────────── */
+const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window);
+let globalPaused = false;
+document.addEventListener('visibilitychange', () => { globalPaused = document.hidden; });
+
 /* ═══════════════════════════════════════════════════════════════
    PCB TRACE-ROUTING ANIMATION
    Маршруты рисуются в реальном времени:
@@ -252,16 +257,14 @@ function buildPCBTrace(canvas) {
 
   const isLight = () => document.documentElement.dataset.theme === 'light';
 
-  /* маппинг тёмной палитры → светлой */
-  function mc(col) {
-    if (!isLight()) return col;
-    const map = { [TRACE1]: L_TRACE1, [TRACE2]: L_TRACE2, [PAD]: L_PAD,
-                  [VIA]: L_VIA, [HEAD]: L_HEAD, [POWER]: L_POWER };
-    return map[col] || col;
-  }
+  const noShadow = isMobile;
+  /* precomputed map — no object allocation per frame */
+  const colorMap = { [TRACE1]: L_TRACE1, [TRACE2]: L_TRACE2, [PAD]: L_PAD,
+                     [VIA]: L_VIA, [HEAD]: L_HEAD, [POWER]: L_POWER };
+  function mc(col) { return isLight() ? (colorMap[col] || col) : col; }
 
-  const GRID   = 32;   /* шаг сетки, px */
-  const ROUTE_COUNT = 55;
+  const GRID = 32;
+  const ROUTE_COUNT = isMobile ? 20 : 55;
 
   let W, H, routes, phase, dwellT, fadeAlpha;
 
@@ -357,7 +360,7 @@ function buildPCBTrace(canvas) {
     ctx.lineWidth   = r.width * (lt ? 1.15 : 1);
     ctx.strokeStyle = col;
     ctx.shadowColor = col;
-    ctx.shadowBlur  = lt ? 0 : (r.width > 2 ? 6 : 3);
+    ctx.shadowBlur  = (noShadow || lt) ? 0 : (r.width > 2 ? 6 : 3);
 
     ctx.beginPath();
     ctx.moveTo(r.a.x, r.a.y);
@@ -390,7 +393,7 @@ function buildPCBTrace(canvas) {
       const hcol = mc(HEAD);
       ctx.globalAlpha = alpha;
       ctx.shadowColor = lt ? col : HEAD;
-      ctx.shadowBlur  = lt ? 8 : 14;
+      ctx.shadowBlur  = noShadow ? 0 : (lt ? 8 : 14);
       ctx.fillStyle   = hcol;
       ctx.beginPath();
       ctx.arc(pt.x, pt.y, lt ? 4 : 3, 0, Math.PI * 2);
@@ -412,7 +415,7 @@ function buildPCBTrace(canvas) {
     const lt = isLight();
     ctx.globalAlpha = alpha;
     ctx.shadowColor = col;
-    ctx.shadowBlur  = lt ? 0 : 8;
+    ctx.shadowBlur  = (noShadow || lt) ? 0 : 8;
     ctx.fillStyle   = col;
     ctx.beginPath();
     ctx.arc(x, y, lt ? r * 1.3 : r, 0, Math.PI * 2);
@@ -435,7 +438,7 @@ function buildPCBTrace(canvas) {
     const lt   = isLight();
     ctx.globalAlpha = alpha;
     ctx.shadowColor = vCol;
-    ctx.shadowBlur  = lt ? 0 : 10;
+    ctx.shadowBlur  = (noShadow || lt) ? 0 : 10;
     ctx.strokeStyle = vCol;
     ctx.lineWidth   = lt ? 1.2 : 1.0;
     ctx.beginPath(); ctx.arc(x, y, lt ? 4 : 3.5, 0, Math.PI * 2); ctx.stroke();
@@ -452,7 +455,7 @@ function buildPCBTrace(canvas) {
     ctx.strokeStyle = cCol;
     ctx.lineWidth   = lt ? 1.1 : 0.9;
     ctx.shadowColor = cCol;
-    ctx.shadowBlur  = lt ? 0 : 6;
+    ctx.shadowBlur  = (noShadow || lt) ? 0 : 6;
     ctx.strokeRect(ch.x, ch.y, ch.w, ch.h);
 
     const pinStep = GRID;
@@ -498,9 +501,20 @@ function buildPCBTrace(canvas) {
     }
   }
 
-  let raf;
-  const loop = () => { draw(); raf = requestAnimationFrame(loop); };
-  const ro   = new ResizeObserver(() => { W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; restart(); });
+  let raf, frameSkip = 0, heroVisible = true;
+  const heroEl = document.getElementById('hero');
+  if (heroEl) new IntersectionObserver(
+    ([e]) => { heroVisible = e.isIntersecting; },
+    { rootMargin: '150px' }
+  ).observe(heroEl);
+
+  const loop = () => {
+    raf = requestAnimationFrame(loop);
+    if (globalPaused || !heroVisible) return;
+    if (isMobile && ++frameSkip % 2 !== 0) return; /* 30fps on mobile */
+    draw();
+  };
+  const ro = new ResizeObserver(() => { W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; restart(); });
   ro.observe(canvas);
   W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight;
   restart(); loop();
@@ -550,24 +564,26 @@ function buildCircuitBoard(canvas, opts) {
       s.pos+=s.speed;if(s.pos>1){s.pos=0;s.speed=rand(.0015,.005);s.color=Math.random()>.5?sparkColor1:sparkColor2;}
     }
   }
-  let raf; const loop=()=>{draw();raf=requestAnimationFrame(loop);};
+  let raf; const loop=()=>{if(!globalPaused)draw();raf=requestAnimationFrame(loop);};
   const ro=new ResizeObserver(resize); ro.observe(canvas); resize(); loop();
   return()=>{cancelAnimationFrame(raf);ro.disconnect();};
 }
 
 /* ─── START ──────────────────────────────────────────────────── */
-buildPCBTrace(document.getElementById('circuit-canvas'));
+if (!isMobile) buildPCBTrace(document.getElementById('circuit-canvas'));
 const mini = document.getElementById('mini-canvas');
 if (mini) buildCircuitBoard(mini);
 
-buildCircuitBoard(document.getElementById('bg-canvas'), {
-  nodeCount: 55,
-  edgeColor: 'rgba(0,207,255,.07)',
-  padColor: 'rgba(0,255,136,.20)',
-  sparkColor1: '#00ff88',
-  sparkColor2: '#00cfff',
-  clearBg: true
-});
+if (!isMobile) {
+  buildCircuitBoard(document.getElementById('bg-canvas'), {
+    nodeCount: 55,
+    edgeColor: 'rgba(0,207,255,.07)',
+    padColor: 'rgba(0,255,136,.20)',
+    sparkColor1: '#00ff88',
+    sparkColor2: '#00cfff',
+    clearBg: true
+  });
+}
 
 /* ─── NAVBAR ─────────────────────────────────────────────────── */
 const navbar = document.getElementById('navbar');
@@ -580,7 +596,10 @@ const fadeObs = new IntersectionObserver(entries => {
     if (!en.isIntersecting) return;
     const siblings = [...en.target.parentElement.querySelectorAll('.fade-in')];
     en.target.style.transitionDelay = `${siblings.indexOf(en.target) * 80}ms`;
+    en.target.style.willChange = 'transform, opacity';
     en.target.classList.add('visible');
+    en.target.addEventListener('transitionend',
+      () => { en.target.style.willChange = ''; }, { once: true });
     fadeObs.unobserve(en.target);
   });
 }, { threshold: 0.12 });
